@@ -1,0 +1,52 @@
+parameter (key_hash);
+storage (pair (pair (option key_hash) mutez) (pair address timestamp));
+
+code
+  { UNPAIR;
+    SWAP; DUP; CDAR; # select the item owner
+    SENDER;
+    IFCMPEQ
+      { # "bid" made by the owner, i.e. the owner wants to retrieve the bid
+        DUP; CDDR; # select the deadline
+        NOW;
+        ASSERT_CMPGT; # make sure the deadline has passed
+        DIP { DROP };  # the parameter is ignored in this case
+        DUP; UNPPAIPAIR; # decompose the storage; previous bidder (if any) on top of the stack
+        IF_SOME
+          { # pay the item owner
+            DROP;
+            DIP { CONTRACT unit; ASSERT_SOME };
+            UNIT;
+            TRANSFER_TOKENS;
+            NIL operation; DIIP { DROP }; SWAP; CONS;   # prepare the return value
+          }
+          { # ignore the request
+           DROP; DROP; DROP; NIL operation }; # prepare the return value
+      }
+      { # someone made a bid
+        DUP; CDDR; # select the deadline
+        NOW;
+        ASSERT_CMPLT; # make sure the deadline has passed
+        DUP; CADR;    # select the previous highest bid
+        AMOUNT;       # get the bidded amount
+        ASSERT_CMPGT; # assert the new bid is higher than the previous one
+        # refund the previous bidder
+        UNPPAIIR;
+        IF_SOME
+          { # there was a previous bidder, make transfer
+            IMPLICIT_ACCOUNT;
+            SWAP;
+            UNIT;
+            TRANSFER_TOKENS;
+            NIL operation; SWAP; CONS; # prepare the return value
+          }
+          { DROP; NIL operation; };    # prepare the return value
+        # update the highest bidder and the highest bid
+        DIP
+          { SWAP;
+            SOME;
+            DIP { AMOUNT };
+            PPAIIR; };
+      };
+    PAIR; # build the return value
+  }
