@@ -18,7 +18,15 @@ code
             DIP { CONTRACT unit; ASSERT_SOME };
             UNIT;
             TRANSFER_TOKENS;
-            NIL operation; DIIP { DROP }; SWAP; CONS;   # prepare the return value
+            NIL operation;
+            DIIP { DROP;
+                   UNPAIR;
+                   DROP;
+                   PUSH (pair (option key_hash) mutez) (Pair None 0);
+                   PAIR @storage;
+                 };
+            SWAP;
+            CONS;   # prepare the return value
           }
           { # ignore the request
            DROP; DROP; DROP; NIL operation }; # prepare the return value
